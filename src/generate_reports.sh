@@ -124,6 +124,9 @@ function main ()
 	    git checkout `git rev-list -1 --before="$DATE" master` -q > /dev/null 2>&1
 	    echo $i,"$fullname" >> "$REPORTFILE"
 	    printf "$i,${fullname}" > "${CLONESDIR}/${i}/${i}.txt"
+	    # rename all directories with spaces to underscores
+	    find -name "* *" -print0 | sort -rz | \
+		while read -d $'\0' f; do mv -v "$f" "$(dirname "$f")/$(basename "${f// /_}")"; done
 	    get_main_class_paths "$SUBMISSION_TYPE" "$SUBMISSION_INDEX" "${CLONESDIR}/${i}"
 	    local failed_flag=0
 	    local missing_flag=1
