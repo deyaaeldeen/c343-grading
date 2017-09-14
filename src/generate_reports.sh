@@ -11,11 +11,11 @@
 # set -euo pipefail
 
 # the submission deadline
-DATE='Aug 25 2017 10:45 am'
+DATE='Sep 8 2017 11:59 am'
 # lab = 0, homework = 1, project = 2
 SUBMISSION_TYPE=0
-SUBMISSION_INDEX=1
-GRADEBOOK_PATH="27_Aug_18-55_Grades-FA17-BL-CSCI-H343-12205.csv"
+SUBMISSION_INDEX=3
+GRADEBOOK_PATH="students.csv"
 # number of seconds to time out
 ts=120
 
@@ -32,11 +32,13 @@ else
     exit -1
 fi
 
-ROOT="/Users/dalmahal-admin/gradespace"
-PROJDIR="${ROOT}/${SUBMISSION_TYPE_I}${SUBMISSION_INDEX}"
+#ROOT="/Users/dalmahal-admin/gradespace"
+ROOT="/app"
+#PROJDIR="${ROOT}/${SUBMISSION_TYPE_I}${SUBMISSION_INDEX}"
+PROJDIR="${ROOT}/gradespace"
 
 # path to the exported csv file from the gradebook on Canvas
-DATAFILE="${PROJDIR}/${GRADEBOOK_PATH}"
+DATAFILE="${ROOT}/${GRADEBOOK_PATH}"
 
 # path to the required JARs, such as junit
 CLASSPATH="$ROOT"
@@ -51,7 +53,10 @@ CLONESDIR="${PROJDIR}/clones"
 ZEROSTUDENTSFILE="${PROJDIR}/failed.txt"
 
 # path to the directory of not compiling submissions
-ZEROSTUDENTSDIR="${PROJDIR}/failed/"
+FAILEDDIR="${PROJDIR}/failed/"
+
+# path to the directory of missing submissions
+MISSINGDIR="${PROJDIR}/missing/"
 
 # path to the textfile that has a list of students who did not submit before the due date
 LATESTUDENTSFILE="${PROJDIR}/late.txt"
@@ -62,8 +67,8 @@ LATESTUDENTSDIR="${PROJDIR}/late"
 # path to the textfile that contains a list of students who does not have a proper repository name
 INVALIDFILE="${ROOT}/c343-invalid.txt"
 
-rm -rf "$REPORTFILE" "$ZEROSTUDENTSFILE" "$ZEROSTUDENTSDIR" "$CLONESDIR" "$LATESTUDENTSFILE" "$LATESTUDENTSDIR" "$INVALIDFILE"
-mkdir -p "$ZEROSTUDENTSDIR" "$CLONESDIR"
+rm -rf "$REPORTFILE" "$ZEROSTUDENTSFILE" "$FAILEDDIR" "$MISSINGDIR" "$CLONESDIR" "$LATESTUDENTSFILE" "$LATESTUDENTSDIR" "$INVALIDFILE"
+mkdir -p "$FAILEDDIR" "$CLONESDIR" "$MISSINGDIR"
 
 _SILENT_JAVA_OPTIONS="$_JAVA_OPTIONS"
 unset _JAVA_OPTIONS
@@ -100,6 +105,10 @@ function get_main_class_paths ()
 
 function main ()
 {
+    # add the github ssh key to the keychain to remember it.
+    keychain id_rsa
+    . ~/.keychain/`uname -n`-sh
+    
     s=($(cut -d, -f4 "$DATAFILE" | sed 1,2d | awk -F= '{print $1}'))
 
     for i in "${s[@]}"; do
@@ -116,7 +125,10 @@ function main ()
 	    echo $i,"$fullname" >> "$REPORTFILE"
 	    printf "$i,${fullname}" > "${CLONESDIR}/${i}/${i}.txt"
 	    get_main_class_paths "$SUBMISSION_TYPE" "$SUBMISSION_INDEX" "${CLONESDIR}/${i}"
+	    local failed_flag=0
+	    local missing_flag=1
 	    for main_class_path in "${RETURN[@]}"; do
+		missing_flag=0
 		srcpath=$(dirname "$main_class_path")
 		main_class_file_name=$(basename "$main_class_path");main_class_file_name_no_ext=${main_class_file_name%.*}
 		cd "$srcpath"
@@ -128,16 +140,23 @@ function main ()
 		if [ $? = "0" ]; then
 		    # submission compiles? great! let's check what you got
 		    printf "\n\n--------------------------------------------------------\n\nRun-time output for ${main_class_path} output\n\n" >> "${CLONESDIR}/${i}/${i}.txt" 
-		    gtimeout ${ts}s java -cp . "$main_class_file_name_no_ext" >> "${CLONESDIR}/${i}/${i}.txt" 2>&1  
+		    timeout ${ts}s java -cp . "$main_class_file_name_no_ext" >> "${CLONESDIR}/${i}/${i}.txt" 2>&1
 		else
-		    # submission does not compile? well, too bad!
-		    echo $i,"$fullname" >> "$ZEROSTUDENTSFILE"
-		    # write_csv_field $i 0
-		    cd "$CLONESDIR"
-		    mv "${CLONESDIR}/${i}" "${ZEROSTUDENTSDIR}/"
+		    failed_flag=1
 		fi
 	    done
-	else 
+	    if [ "$failed_flag" -eq 1 ]; then
+	    	# submission does not compile? well, too bad!
+		echo $i,"$fullname" >> "$ZEROSTUDENTSFILE"
+		cd "$CLONESDIR"
+		mv "${CLONESDIR}/${i}" "${FAILEDDIR}/"
+	    fi
+	    if [ "$missing_flag" -eq 1 ]; then
+		echo $i,"$fullname" >> "$ZEROSTUDENTSFILE"
+		cd "$CLONESDIR"
+		mv "${CLONESDIR}/${i}" "${MISSINGDIR}/"
+	    fi
+	else
 	    echo $i,"$fullname" >> "$INVALIDFILE"
 	fi
     done
