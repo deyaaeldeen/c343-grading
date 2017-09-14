@@ -140,7 +140,7 @@ function main ()
 		if [ $? = "0" ]; then
 		    # submission compiles? great! let's check what you got
 		    printf "\n\n--------------------------------------------------------\n\nRun-time output for ${main_class_path} output\n\n" >> "${CLONESDIR}/${i}/${i}.txt" 
-		    timeout ${ts}s java -cp . "$main_class_file_name_no_ext" >> "${CLONESDIR}/${i}/${i}.txt" 2>&1
+		    timeout -s KILL ${ts}s java -cp . "$main_class_file_name_no_ext" >> "${CLONESDIR}/${i}/${i}.txt" 2>&1
 		else
 		    failed_flag=1
 		fi
