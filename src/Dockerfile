@@ -6,19 +6,15 @@
 #
 
 # Pull base image.
-# FROM openjdk/8-jdk
- FROM ubuntu
-
-# Install Java.
-RUN \
-  echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
-  apt-get update && \
-  apt-get install -y software-properties-common keychain git nano tzdata && \
-  add-apt-repository -y ppa:webupd8team/java && \
-  apt-get update && \
-  apt-get install -y oracle-java8-installer && \
-  rm -rf /var/lib/apt/lists/* && \
-  rm -rf /var/cache/oracle-jdk8-installer
+# FROM ubuntu
+FROM rigon/archlinux-jdk
+RUN pacman-key --refresh-keys
+RUN pacman --quiet --noconfirm -Syu
+RUN pacman --quiet --noconfirm -S base-devel
+RUN pacman --quiet --noconfirm -S openssh
+RUN pacman --quiet --noconfirm -S nano emacs
+RUN pacman --quiet --noconfirm -S tzdata
+RUN pacman --quiet --noconfirm -S git
 
 RUN \
   mkdir /root/.ssh/ && \
@@ -39,9 +35,6 @@ ADD id_rsa.pub /root/.ssh/id_rsa.pub
 ENV TZ=America/New_York
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# Define commonly used JAVA_HOME variable
-ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
 
 # Define default command.
 CMD ["bash", "/app/generate_reports.sh"]
